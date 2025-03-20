@@ -31,7 +31,7 @@ A user-friendly web application that allows users to efficiently find and save l
 
 
 ## Development Roadmap
-**Phase 1: Requirement Analysi**s
+**Phase 1: Requirement Analysis**
 - Define core functionalities and user flow.
 - Identify technical and non-technical requirements.
 - 
