@@ -34,7 +34,7 @@ A user-friendly web application that allows users to efficiently find and save l
 **Phase 1: Requirement Analysis**
 - Define core functionalities and user flow.
 - Identify technical and non-technical requirements.
-- 
+
 **Phase 2: System Design**
 - Design wireframes for key pages:
   - Login & Signup
