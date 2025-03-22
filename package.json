@@ -1,0 +1,20 @@
+{
+  "name": "s73_naman_capstone_eventsphere",
+  "version": "1.0.0",
+  "description": "Many individuals miss out on local events due to a lack of awareness. This project aims to develop a web-based platform that enables users to discover, explore, and bookmark local events based on their interests and location.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.12.2",
+    "morgan": "^1.10.0",
+    "nodemon": "^3.1.9"
+  }
+}
