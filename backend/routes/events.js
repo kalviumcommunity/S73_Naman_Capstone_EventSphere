@@ -78,6 +78,58 @@ router.post(
       }
     }
   );
+
+  // PUT: Update an existing event
+router.put(
+    "/events/:id",
+    [
+      body("name")
+        .optional()
+        .isString().withMessage("Name must be a string")
+        .trim()
+        .isLength({ min: 3, max: 100 }).withMessage("Name must be between 3 and 100 characters"),
+  
+      body("location")
+        .optional()
+        .isString().withMessage("Location must be a string")
+        .trim()
+        .isLength({ min: 2, max: 100 }).withMessage("Location must be between 2 and 100 characters"),
+  
+      body("date")
+        .optional()
+        .isISO8601().withMessage("Date must be in ISO 8601 format (YYYY-MM-DD)"),
+  
+      body("description")
+        .optional()
+        .isString().withMessage("Description must be a string")
+        .trim()
+        .isLength({ max: 300 }).withMessage("Description must not exceed 300 characters"),
+    ],
+    async (req, res) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+  
+      try {
+        const eventId = req.params.id;
+        const updates = req.body;
+  
+        const updatedEvent = await Event.findByIdAndUpdate(eventId, updates, {
+          new: true,
+          runValidators: true,
+        });
+  
+        if (!updatedEvent) {
+          return res.status(404).json({ error: "Event not found" });
+        }
+  
+        res.status(200).json(updatedEvent);
+      } catch (error) {
+        res.status(500).json({ error: "Failed to update event" });
+      }
+    }
+  );
   
 
 module.exports = router;
