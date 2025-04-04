@@ -3,15 +3,16 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors")
 const morgan = require("morgan");
-// const connectDB = require("./config/db");
+const connectDB = require("./config/db");
 const eventRoutes = require("./routes/events");
 
 dotenv.config();
-// connectDB();
+connectDB();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
 app.use(morgan("dev"));
 
 app.use("/api", eventRoutes);
