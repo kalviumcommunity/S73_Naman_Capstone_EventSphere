@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { body, validationResult } = require("express-validator");
 const Event = require("../models/Event");  
 
 
@@ -29,27 +30,37 @@ router.get("/events/:id", async (req, res) =>{
 
 
 // POST: Create a new event
-router.post("/events", async (req, res) => {
-    try {
-      const { name, date, location, description } = req.body;
-  
-      if (!name || !date || !location) {
-        return res.status(400).json({ error: "Name, date, and location are required." });
+router.post(
+    "/events",
+    [
+      body("name").isString().trim().notEmpty().withMessage("Name is required"),
+      body("location").isString().trim().notEmpty().withMessage("Location is required"),
+      body("date").isISO8601().withMessage("Date must be in ISO 8601 format (YYYY-MM-DD)"),
+      body("description").optional().isString().trim(),
+    ],
+    async (req, res) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
       }
   
-      const newEvent = new Event({
-        name,
-        date,
-        location,
-        description,
-      });
+      try {
+        const { name, date, location, description } = req.body;
   
-      const savedEvent = await newEvent.save();
-      res.status(201).json(savedEvent);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create event." });
+        const newEvent = new Event({
+          name,
+          date,
+          location,
+          description,
+        });
+  
+        const savedEvent = await newEvent.save();
+        res.status(201).json(savedEvent);
+      } catch (error) {
+        res.status(500).json({ error: "Failed to create event." });
+      }
     }
-  });
+  );
 
   
 
