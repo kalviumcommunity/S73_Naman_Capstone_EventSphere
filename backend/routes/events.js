@@ -80,6 +80,7 @@ router.post(
   );
 
   // PUT: Update an existing event
+// PUT: Update an existing event
 router.put(
     "/events/:id",
     [
@@ -87,16 +88,19 @@ router.put(
         .optional()
         .isString().withMessage("Name must be a string")
         .trim()
+        .notEmpty().withMessage("Name is required")
         .isLength({ min: 3, max: 100 }).withMessage("Name must be between 3 and 100 characters"),
   
       body("location")
         .optional()
         .isString().withMessage("Location must be a string")
         .trim()
+        .notEmpty().withMessage("Location is required")
         .isLength({ min: 2, max: 100 }).withMessage("Location must be between 2 and 100 characters"),
   
       body("date")
         .optional()
+        .notEmpty().withMessage("Date is required")
         .isISO8601().withMessage("Date must be in ISO 8601 format (YYYY-MM-DD)"),
   
       body("description")
@@ -130,6 +134,7 @@ router.put(
       }
     }
   );
+  
   
 
 module.exports = router;
