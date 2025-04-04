@@ -14,6 +14,7 @@ router.get("/events", async (req, res) =>{
     }
 });
 
+
 // GET a single event by ID 
 router.get("/events/:id", async (req, res) =>{
     try{
@@ -25,6 +26,32 @@ router.get("/events/:id", async (req, res) =>{
         res.status(500).json({ error: "Error fetching event" });
     }
 });
+
+
+// POST: Create a new event
+router.post("/events", async (req, res) => {
+    try {
+      const { name, date, location, description } = req.body;
+  
+      if (!name || !date || !location) {
+        return res.status(400).json({ error: "Name, date, and location are required." });
+      }
+  
+      const newEvent = new Event({
+        name,
+        date,
+        location,
+        description,
+      });
+  
+      const savedEvent = await newEvent.save();
+      res.status(201).json(savedEvent);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create event." });
+    }
+  });
+
+  
 
 module.exports = router;
 
