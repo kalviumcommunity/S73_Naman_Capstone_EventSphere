@@ -1,0 +1,21 @@
+meta {
+  name: POST Endpoint testing
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:1369/api/events
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Food Festival 2025",
+    "date": "2025-05-01",
+    "location": "Hyderabad",
+    "description": "A celebration of food and culture"
+  }
+  
+}
