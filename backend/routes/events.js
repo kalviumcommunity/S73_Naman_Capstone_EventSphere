@@ -33,10 +33,27 @@ router.get("/events/:id", async (req, res) =>{
 router.post(
     "/events",
     [
-      body("name").isString().trim().notEmpty().withMessage("Name is required"),
-      body("location").isString().trim().notEmpty().withMessage("Location is required"),
-      body("date").isISO8601().withMessage("Date must be in ISO 8601 format (YYYY-MM-DD)"),
-      body("description").optional().isString().trim(),
+      body("name")
+        .isString().withMessage("Name must be a string")
+        .trim()
+        .notEmpty().withMessage("Name is required")
+        .isLength({ min: 3, max: 100 }).withMessage("Name must be between 3 and 100 characters"),
+  
+      body("location")
+        .isString().withMessage("Location must be a string")
+        .trim()
+        .notEmpty().withMessage("Location is required")
+        .isLength({ min: 2, max: 100 }).withMessage("Location must be between 2 and 100 characters"),
+  
+      body("date")
+        .notEmpty().withMessage("Date is required")
+        .isISO8601().withMessage("Date must be in ISO 8601 format (YYYY-MM-DD)"),
+  
+      body("description")
+        .optional()
+        .isString().withMessage("Description must be a string")
+        .trim()
+        .isLength({ max: 300 }).withMessage("Description must not exceed 300 characters"),
     ],
     async (req, res) => {
       const errors = validationResult(req);
@@ -61,7 +78,6 @@ router.post(
       }
     }
   );
-
   
 
 module.exports = router;
