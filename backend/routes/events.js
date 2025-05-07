@@ -79,7 +79,7 @@ router.post(
     }
   );
 
-  // PUT: Update an existing event
+
 // PUT: Update an existing event
 router.put(
     "/events/:id",
@@ -138,4 +138,3 @@ router.put(
   
 
 module.exports = router;
-
