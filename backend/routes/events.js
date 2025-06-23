@@ -55,6 +55,7 @@ router.post(
         .trim()
         .isLength({ max: 300 }).withMessage("Description must not exceed 300 characters"),
     ],
+    
     async (req, res) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
