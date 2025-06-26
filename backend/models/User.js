@@ -23,6 +23,8 @@ const userSchema = new mongoose.Schema({
     required: true,
     minlength: 6,
   },
+  bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
+
 });
 
 //  Hash password before saving to DB

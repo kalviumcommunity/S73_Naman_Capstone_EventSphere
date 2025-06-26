@@ -5,6 +5,8 @@ const cors = require("cors")
 const morgan = require("morgan");
 const connectDB = require("./config/db");
 const eventRoutes = require("./routes/events");
+const userRoutes = require("./routes/users");
+
 
 dotenv.config();
 connectDB();
@@ -16,6 +18,7 @@ app.use(cors());
 app.use(morgan("dev"));
 
 app.use("/api", eventRoutes);
+app.use("/api", userRoutes);
 
 app.get("/", (req, res) =>{
     res.send("Local Event Finder API is running...");
