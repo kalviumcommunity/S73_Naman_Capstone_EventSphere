@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { body, validationResult } = require("express-validator");
 const Event = require("../models/Event");  
+const User = require("../models/User");
 
 
 
@@ -66,7 +67,7 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    try {
+    try {  
       const { name, date, location, description, userId } = req.body;
 
       const newEvent = new Event({
@@ -79,6 +80,13 @@ router.post(
 
       const savedEvent = await newEvent.save();
       res.status(201).json(savedEvent);
+
+      const user = await User.findById(userId);
+      if (!user) {
+      return res.status(404).json({ error: "User not found" });
+}
+
+
     } catch (error) {
       res.status(500).json({ error: "Failed to create event." });
     }
