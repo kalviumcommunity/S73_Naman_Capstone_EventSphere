@@ -87,5 +87,8 @@ A user-friendly web application that allows users to efficiently find and save l
 
 
 
-- Deployement Link 
+- Backend Deployment Link 
 https://s73-naman-capstone-eventsphere.onrender.com
+
+- Frontend Deployment Link
+https://gilded-medovik-551624.netlify.app/
