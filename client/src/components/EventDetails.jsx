@@ -1,4 +1,8 @@
 export default function EventDetails({ event }) {
+  if (!event) {
+    return <p>No event data available.</p>;
+  }
+
   return (
     <div>
       <h2>{event.name}</h2>
