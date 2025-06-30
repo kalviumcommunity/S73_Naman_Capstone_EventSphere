@@ -6,6 +6,7 @@ const morgan = require("morgan");
 const connectDB = require("./config/db");
 const eventRoutes = require("./routes/events");
 const userRoutes = require("./routes/users");
+const uploadRoutes = require("./routes/upload");
 
 
 dotenv.config();
@@ -18,6 +19,7 @@ app.use(cors());
 app.use(morgan("dev"));
 
 app.use("/api", eventRoutes);
+app.use("/api", uploadRoutes);
 app.use("/api", userRoutes);
 
 app.get("/", (req, res) =>{
