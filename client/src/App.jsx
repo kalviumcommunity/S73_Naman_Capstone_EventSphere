@@ -1,17 +1,30 @@
-import Navbar from "./components/Navbar";
-import EventList from "./components/EventList";
-
-const mockEvents = [
-  { _id: "1", name: "Event 1", date: "2025-07-01", location: "Mumbai" },
-  { _id: "2", name: "Event 2", date: "2025-07-05", location: "Delhi" },
-];
+// src/components/App.jsx
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import './App.css';
 
 function App() {
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/events')
+      .then(response => setEvents(response.data))
+      .catch(error => console.error(error));
+  }, []);
+
   return (
-    <div>
-      <Navbar />
-      <h1>Upcoming Events</h1>
-      <EventList events={mockEvents} />
+    <div className="App">
+      <header className="header">EventSphere</header>
+      <h2>Upcoming Events</h2>
+      <div className="event-list">
+        {events.map(event => (
+          <div className="event-card" key={event._id}>
+            <h3>{event.name}</h3>
+            <p>{event.date}</p>
+            <p>{event.location}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
