@@ -1,30 +1,49 @@
-// src/components/App.jsx
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import './App.css';
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
+import Navbar from "./components/Navbar";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import EventDetailsPage from "./pages/EventDetailsPage";
+import BookmarksPage from "./pages/BookmarksPage";
+import CreateEventPage from "./pages/CreateEventPage";
+import "./App.css";
+
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? children : <Navigate to="/login" />;
+}
 
 function App() {
-  const [events, setEvents] = useState([]);
-
-  useEffect(() => {
-    axios.get('http://localhost:5000/api/events')
-      .then(response => setEvents(response.data))
-      .catch(error => console.error(error));
-  }, []);
-
   return (
-    <div className="App">
-      <header className="header">EventSphere</header>
-      <h2>Upcoming Events</h2>
-      <div className="event-list">
-        {events.map(event => (
-          <div className="event-card" key={event._id}>
-            <h3>{event.name}</h3>
-            <p>{event.date}</p>
-            <p>{event.location}</p>
-          </div>
-        ))}
-      </div>
+    <div className="app">
+      <Navbar />
+      <main className="main-content">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/events/:id" element={<EventDetailsPage />} />
+          <Route
+            path="/bookmarks"
+            element={
+              <ProtectedRoute>
+                <BookmarksPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/create-event"
+            element={
+              <ProtectedRoute>
+                <CreateEventPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </main>
     </div>
   );
 }
