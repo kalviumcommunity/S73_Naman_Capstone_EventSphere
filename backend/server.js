@@ -16,25 +16,25 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(
-    cors({
-        origin: process.env.CLIENT_URL || "http://localhost:5173",
-        credentials: true,
-    })
-);
+app.use(cors());
 app.use(morgan("dev"));
 
 // Serve uploaded files as static
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Routes
+// API Routes
 app.use("/api", eventRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api", userRoutes);
 app.use("/api/auth", authRoutes);
 
-app.get("/", (req, res) => {
-    res.send("EventSphere API is running...");
+// Serve frontend in production
+const clientDistPath = path.join(__dirname, "..", "client", "dist");
+app.use(express.static(clientDistPath));
+
+// SPA fallback — any non-API route serves index.html
+app.get("*", (req, res) => {
+    res.sendFile(path.join(clientDistPath, "index.html"));
 });
 
 // Global error handler
