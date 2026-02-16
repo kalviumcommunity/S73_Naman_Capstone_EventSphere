@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "";
 const CATEGORIES = ["Music", "Sports", "Tech", "Art", "Food", "Business", "Other"];
 
 export default function CreateEventPage() {

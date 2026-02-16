@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import EventCard from "../components/EventCard";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "";
 const CATEGORIES = ["All", "Music", "Sports", "Tech", "Art", "Food", "Business", "Other"];
 
 export default function HomePage() {
@@ -21,7 +21,7 @@ export default function HomePage() {
                 query.set("category", params.category);
 
             const res = await axios.get(`${API_URL}/api/events?${query.toString()}`);
-            setEvents(res.data);
+            setEvents(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             console.error("Error fetching events:", err);
         } finally {

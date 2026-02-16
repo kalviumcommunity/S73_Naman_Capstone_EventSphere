@@ -1,94 +1,162 @@
-# S73_Naman_Capstone_EventSphere
+# ✦ EventSphere — Local Event Discovery Platform
 
-## EventSphere - Local Event Discovery Platform
-## **Problem Statement** 
+> Discover, explore, and bookmark local events based on your interests and location.
 
-Many individuals miss out on local events due to a lack of awareness. This project aims to develop a web-based platform that enables users to discover, explore, and bookmark local events based on their interests and location.
+🔗 **Live Demo:** [https://s73-naman-capstone-eventsphere.onrender.com](https://s73-naman-capstone-eventsphere.onrender.com)
 
-**Proposed Solution**
-A user-friendly web application that allows users to efficiently find and save local events. The platform will include the following core features:
+---
 
-**Key Features**
+## 🎯 Problem Statement
 
-- User Authentication: Secure sign-up, login, and logout functionality.
-- Event Listing: Browse events based on categories and location filters.
-- Event Details: View comprehensive information about each event.
-- Bookmarking: Save events for future reference.
-- Search and Filtering: Search events by keywords, date, or category.
+Many individuals miss out on local events due to a lack of awareness. EventSphere is a web-based platform that enables users to discover, explore, and bookmark local events — all in one place.
 
-**Technology Stack**
+## ⚡ Key Features
 
-- Backend: Node.js with Express.js (REST API)
-- Database: MongoDB (NoSQL)
-- Frontend: React.js (Component-based UI)
-- Authentication: JWT-based authentication
-- Deployment:
-  - Backend: Heroku
-  - Frontend: Netlify
-- Testing:
-  - Backend: Jest
-  - Frontend: React Testing Library
+| Feature | Description |
+|---------|-------------|
+| 🔐 **Authentication** | Secure sign-up, login & logout with JWT |
+| 📋 **Event Listing** | Browse events with category & location filters |
+| 🔍 **Search & Filter** | Search by keyword, category, date, or location |
+| 📌 **Bookmarking** | Save events for future reference |
+| 📄 **Event Details** | View comprehensive info about each event |
+| ➕ **Create Events** | Authenticated users can create & manage events |
+| 🗑 **Delete Events** | Creator-only event deletion |
 
+## 🛠 Tech Stack
 
-## Development Roadmap
-**Phase 1: Requirement Analysis**
-- Define core functionalities and user flow.
-- Identify technical and non-technical requirements.
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 19 · Vite 7 · React Router |
+| **Backend** | Node.js · Express.js |
+| **Database** | MongoDB Atlas (Mongoose ODM) |
+| **Auth** | JWT (JSON Web Tokens) |
+| **Styling** | Vanilla CSS (Dark glassmorphic theme) |
+| **Deployment** | Render (unified full-stack) |
 
-**Phase 2: System Design**
-- Design wireframes for key pages:
-  - Login & Signup
-  - Event Listings & Details
-  - Bookmark Management
-- Define database schema for **Users, Events, and Bookmarks**.
+## 📸 Screenshots
 
-**Phase 3: Backend Development**
-- Set up the server with Node.js and Express.js.
-- Implement JWT-based authentication.
-- Develop CRUD operations for managing events and bookmarks.
-- Integrate location-based filtering for event discovery.
+The app features a modern dark UI with:
+- Glassmorphic cards with gradient accent borders
+- Animated staggered event grid
+- Color-coded category badges
+- Responsive mobile design with hamburger menu
 
-**Phase 4: Frontend Development**
-- Build the UI using React.js.
-- Develop reusable components for various pages.
-- Integrate frontend with backend APIs.
+## 🚀 Getting Started
 
-**Phase 5: Testing**
-- Write unit tests for backend endpoints using Jest.
-- Perform component testing using React Testing Library.
+### Prerequisites
+- Node.js ≥ 18
+- MongoDB Atlas URI (or local MongoDB)
 
-**Phase 6: Deployment & Maintenance**
-- Deploy backend services on Heroku.
-- Deploy frontend on Netlify.
-- Monitor and optimize performance for scalability.
+### Installation
 
+```bash
+# Clone the repository
+git clone https://github.com/kalviumcommunity/S73_Naman_Capstone_EventSphere.git
+cd S73_Naman_Capstone_EventSphere
 
-**Week 1 - Backend & Authentication (10 hrs)**
+# Install backend dependencies
+npm install
 
-**Day 1: Requirement Analysis & Project Setup** 
+# Install frontend dependencies
+cd client && npm install && cd ..
+```
 
-✅ (2 hrs) Define core features, user flow, API endpoints, and database schema.
+### Environment Variables
 
-**Day 2: Backend Setup & Authentication**
+Create `backend/.env`:
+```env
+PORT=1369
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
+```
 
-✅ (2 hrs) Initialize Node.js project, set up Express.js & MongoDB, configure JWT authentication.
+Create `client/.env` (for local dev only):
+```env
+VITE_API_URL=http://localhost:1369
+```
 
-**Day 3: Event Schema & CRUD Operations**
+### Run Locally
 
-✅ (2 hrs) Define Event schema and implement Create & Read APIs.
+```bash
+# Terminal 1 — Backend
+cd backend && node server.js
 
-**Day 4: Event Management & Validation**
+# Terminal 2 — Frontend
+cd client && npm run dev
+```
 
-✅ (2 hrs) Implement Update & Delete event APIs with validation (Joi/Zod).
+Open [http://localhost:5173](http://localhost:5173)
 
-**Day 5: Bookmark & Search Features**
+### Seed Sample Data
 
-✅ (2 hrs) Develop bookmark system and search/filter API (keyword, category, date).
+```bash
+cd backend && node seed.js
+```
+This creates 12 sample events and a demo account:
+- **Email:** `demo@eventsphere.com`
+- **Password:** `demo123456`
 
+## 📁 Project Structure
 
+```
+├── backend/
+│   ├── config/          # Database connection
+│   ├── middleware/       # JWT auth middleware
+│   ├── models/          # Mongoose schemas (User, Event)
+│   ├── routes/          # API routes (auth, events, users, upload)
+│   ├── seed.js          # Database seeder
+│   └── server.js        # Express server + SPA serving
+├── client/
+│   ├── src/
+│   │   ├── components/  # Reusable UI components
+│   │   ├── context/     # Auth context provider
+│   │   ├── pages/       # Route page components
+│   │   ├── App.jsx      # Router setup
+│   │   └── index.css    # Design system
+│   └── index.html
+├── package.json         # Root config with unified build/start
+└── README.md
+```
 
-- Backend Deployment Link 
-https://s73-naman-capstone-eventsphere.onrender.com
+## 📡 API Endpoints
 
-- Frontend Deployment Link
-https://gilded-medovik-551624.netlify.app/
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register new user |
+| POST | `/api/auth/login` | Login & receive JWT |
+
+### Events
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/events` | List all events (supports `?keyword`, `?category`, `?date`, `?location`) |
+| GET | `/api/events/:id` | Get event details |
+| POST | `/api/events` | Create event 🔒 |
+| PUT | `/api/events/:id` | Update event 🔒 |
+| DELETE | `/api/events/:id` | Delete event 🔒 |
+
+### Bookmarks
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/users/:userId/bookmarks` | Get bookmarks 🔒 |
+| POST | `/api/users/:userId/bookmark/:eventId` | Bookmark event 🔒 |
+| DELETE | `/api/users/:userId/bookmark/:eventId` | Remove bookmark 🔒 |
+
+> 🔒 = Requires `Authorization: Bearer <token>` header
+
+## 🗺 Development Roadmap
+
+- [x] **Phase 1:** Requirement analysis & project setup
+- [x] **Phase 2:** System design — wireframes & database schema
+- [x] **Phase 3:** Backend — Express server, JWT auth, CRUD, search/filter
+- [x] **Phase 4:** Frontend — React UI, routing, auth context, all pages
+- [x] **Phase 5:** Testing & bug fixes
+- [x] **Phase 6:** Deployment on Render
+
+## 👤 Author
+
+**Naman** — [GitHub](https://github.com/kalviumcommunity/S73_Naman_Capstone_EventSphere)
+
+---
+
+<p align="center">Built with ❤️ for Kalvium Capstone</p>
