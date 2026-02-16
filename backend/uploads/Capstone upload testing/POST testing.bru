@@ -1,0 +1,15 @@
+meta {
+  name: POST testing
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:1369/api/upload
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  image: @file(C:\Users\naman\Pictures\Screenshots 1\Screenshot 2024-10-26 185504.png)
+}

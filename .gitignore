@@ -1,1 +1,20 @@
+# Dependencies
 node_modules/
+
+# Environment variables
+.env
+
+# Uploads
+/uploads
+backend/uploads/
+
+# Build output
+client/dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

@@ -1,17 +1,49 @@
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
-import EventList from "./components/EventList";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import EventDetailsPage from "./pages/EventDetailsPage";
+import BookmarksPage from "./pages/BookmarksPage";
+import CreateEventPage from "./pages/CreateEventPage";
+import "./App.css";
 
-const mockEvents = [
-  { _id: "1", name: "Event 1", date: "2025-07-01", location: "Mumbai" },
-  { _id: "2", name: "Event 2", date: "2025-07-05", location: "Delhi" },
-];
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? children : <Navigate to="/login" />;
+}
 
 function App() {
   return (
-    <div>
+    <div className="app">
       <Navbar />
-      <h1>Upcoming Events</h1>
-      <EventList events={mockEvents} />
+      <main className="main-content">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/events/:id" element={<EventDetailsPage />} />
+          <Route
+            path="/bookmarks"
+            element={
+              <ProtectedRoute>
+                <BookmarksPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/create-event"
+            element={
+              <ProtectedRoute>
+                <CreateEventPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </main>
     </div>
   );
 }
