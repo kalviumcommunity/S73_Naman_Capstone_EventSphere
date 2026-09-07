@@ -1,0 +1,26 @@
+meta {
+  name: 04 Update event
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/events/{{eventId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Food Festival — now with more food",
+    "description": "An expanded celebration of food and culture."
+  }
+}
+
+assert {
+  res.status: eq 200
+}

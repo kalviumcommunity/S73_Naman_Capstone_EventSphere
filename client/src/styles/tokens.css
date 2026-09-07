@@ -1,0 +1,179 @@
+/* ==========================================================================
+   EventSphere — design tokens
+
+   Warm neutrals with a single vermillion accent. Category hues are muted so
+   they read as taxonomy rather than decoration and never fight the accent.
+   ========================================================================== */
+
+:root {
+  /* --- Type ------------------------------------------------------------- */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  /* A 1.25 scale, clamped so headings stay proportionate on small screens. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: clamp(1.125rem, 0.4vw + 1rem, 1.25rem);
+  --text-xl: clamp(1.375rem, 1vw + 1.1rem, 1.75rem);
+  --text-2xl: clamp(1.75rem, 2vw + 1.2rem, 2.5rem);
+  --text-3xl: clamp(2.25rem, 4.2vw + 1.1rem, 4rem);
+
+  --leading-tight: 1.12;
+  --leading-snug: 1.32;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.72;
+
+  --tracking-tight: -0.022em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.08em;
+
+  /* --- Space (4px rhythm) ----------------------------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+
+  /* --- Radii ------------------------------------------------------------ */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* --- Layout ----------------------------------------------------------- */
+  --nav-height: 68px;
+  --page-max: 1200px;
+  --page-gutter: clamp(1rem, 4vw, 2.5rem);
+
+  /* --- Motion ----------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --duration-fast: 130ms;
+  --duration: 220ms;
+  --duration-slow: 380ms;
+
+  /* --- Palette: light (default) ----------------------------------------- */
+  --bg: #fbf9f6;
+  --bg-subtle: #f4f1ec;
+  --bg-sunken: #efeae3;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-hover: #faf8f5;
+
+  --text: #191512;
+  --text-secondary: #57504a;
+  --text-muted: #8a827a;
+  --text-inverse: #fbf9f6;
+
+  --border: #e4ded5;
+  --border-strong: #d2cabe;
+  --border-focus: var(--accent);
+
+  --accent: #d94225;
+  --accent-hover: #c0341a;
+  --accent-soft: #fdeee9;
+  --accent-border: #f6cfc3;
+  --accent-text: #a82c14;
+  --on-accent: #ffffff;
+
+  --success: #1c7d52;
+  --success-soft: #e6f4ec;
+  --danger: #c0392b;
+  --danger-soft: #fdecea;
+  --warning: #9a6410;
+  --warning-soft: #fdf2df;
+
+  --shadow-xs: 0 1px 2px rgb(38 30 24 / 0.05);
+  --shadow-sm: 0 1px 3px rgb(38 30 24 / 0.07), 0 1px 2px rgb(38 30 24 / 0.04);
+  --shadow-md: 0 4px 12px rgb(38 30 24 / 0.07), 0 2px 4px rgb(38 30 24 / 0.04);
+  --shadow-lg: 0 14px 36px rgb(38 30 24 / 0.11), 0 4px 10px rgb(38 30 24 / 0.05);
+  --shadow-xl: 0 26px 60px rgb(38 30 24 / 0.15);
+
+  /* Skeleton shimmer */
+  --skeleton-base: #eae4dc;
+  --skeleton-sheen: #f6f2ed;
+
+  /* --- Category hues ---------------------------------------------------- */
+  --cat-music: #7b4bc4;
+  --cat-music-soft: #f2ecfb;
+  --cat-sports: #1f7a4d;
+  --cat-sports-soft: #e6f3ec;
+  --cat-tech: #1e5fa8;
+  --cat-tech-soft: #e7f0fa;
+  --cat-art: #b3541e;
+  --cat-art-soft: #fbeee4;
+  --cat-food: #a8342f;
+  --cat-food-soft: #fbeae9;
+  --cat-business: #4a5478;
+  --cat-business-soft: #eef0f6;
+  --cat-other: #6b6259;
+  --cat-other-soft: #f1eeea;
+}
+
+/* --- Palette: dark -------------------------------------------------------
+   Applied for an explicit choice, and for "system" when the OS prefers dark.
+   Every token defined above is redefined here — none is left theme-only. */
+
+:root[data-theme="dark"] {
+  --bg: #14120f;
+  --bg-subtle: #1b1815;
+  --bg-sunken: #100e0c;
+  --surface: #1e1b17;
+  --surface-raised: #26221d;
+  --surface-hover: #272320;
+
+  --text: #f4f0ea;
+  --text-secondary: #b8afa4;
+  --text-muted: #8b8177;
+  --text-inverse: #14120f;
+
+  --border: #322d27;
+  --border-strong: #443d35;
+
+  --accent: #f2634a;
+  --accent-hover: #f57b65;
+  --accent-soft: #2c1a15;
+  --accent-border: #4a291f;
+  --accent-text: #f8917e;
+  --on-accent: #14120f;
+
+  --success: #4cc08a;
+  --success-soft: #14251c;
+  --danger: #f0705f;
+  --danger-soft: #2b1714;
+  --warning: #e0a94a;
+  --warning-soft: #2a2013;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-md: 0 4px 14px rgb(0 0 0 / 0.5), 0 2px 5px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.6), 0 5px 12px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 28px 64px rgb(0 0 0 / 0.7);
+
+  --skeleton-base: #262119;
+  --skeleton-sheen: #332c23;
+
+  --cat-music: #b899ee;
+  --cat-music-soft: #241b33;
+  --cat-sports: #5cc48d;
+  --cat-sports-soft: #142720;
+  --cat-tech: #7fb2ec;
+  --cat-tech-soft: #14202f;
+  --cat-art: #eba26c;
+  --cat-art-soft: #2b1d12;
+  --cat-food: #ef8a80;
+  --cat-food-soft: #2c1715;
+  --cat-business: #a3aed4;
+  --cat-business-soft: #1b1e2b;
+  --cat-other: #b0a599;
+  --cat-other-soft: #232019;
+}

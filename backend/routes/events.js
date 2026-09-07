@@ -1,226 +1,387 @@
 const express = require("express");
-const router = express.Router();
-const { body, validationResult } = require("express-validator");
+const mongoose = require("mongoose");
+const { body, query, param } = require("express-validator");
 const Event = require("../models/Event");
-const User = require("../models/User");
+const { CATEGORIES } = require("../models/Event");
 const authMiddleware = require("../middleware/authMiddleware");
+const { optionalAuth } = require("../middleware/authMiddleware");
+const validate = require("../middleware/validate");
+const { asyncHandler } = require("../middleware/errorHandler");
+const { writeLimiter } = require("../middleware/rateLimit");
 
-// GET all events (with search/filter support)
-router.get("/events", async (req, res) => {
-  try {
-    const { keyword, category, date, location } = req.query;
-    const filter = {};
+const router = express.Router();
 
-    if (keyword) {
-      filter.$or = [
-        { name: { $regex: keyword, $options: "i" } },
-        { description: { $regex: keyword, $options: "i" } },
-      ];
-    }
+const MAX_LIMIT = 48;
+const DEFAULT_LIMIT = 12;
 
-    if (category && category !== "All") {
-      filter.category = category;
-    }
+/** Fields a user may set. Blocks mass assignment of source/createdBy/attendees. */
+const EDITABLE_FIELDS = [
+  "name", "date", "endDate", "location", "venue", "city", "country",
+  "description", "category", "tags", "image", "url", "isOnline", "timezone",
+];
 
-    if (date) {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
-      filter.date = { $gte: startOfDay, $lte: endOfDay };
-    }
-
-    if (location) {
-      filter.location = { $regex: location, $options: "i" };
-    }
-
-    const events = await Event.find(filter)
-      .populate("createdBy", "name email")
-      .sort({ date: 1 });
-
-    res.status(200).json(events);
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching events" });
+function pickEditable(payload) {
+  const out = {};
+  for (const key of EDITABLE_FIELDS) {
+    if (payload[key] !== undefined) out[key] = payload[key];
   }
-});
+  return out;
+}
 
-// GET a single event by ID
-router.get("/events/:id", async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id).populate(
-      "createdBy",
-      "name email"
-    );
+/** Escape user input before it reaches a $regex so metacharacters stay literal. */
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Translate query parameters into a Mongo filter. */
+function buildFilter(q, user) {
+  const filter = {};
+  const and = [];
+
+  if (q.keyword) {
+    const rx = new RegExp(escapeRegex(q.keyword.trim()), "i");
+    and.push({ $or: [{ name: rx }, { description: rx }, { location: rx }, { tags: rx }] });
+  }
+
+  if (q.category && q.category !== "All") filter.category = q.category;
+
+  if (q.city) filter.city = new RegExp("^" + escapeRegex(q.city.trim()) + "$", "i");
+  if (q.country) filter.country = new RegExp("^" + escapeRegex(q.country.trim()) + "$", "i");
+
+  // Free-text place match across every location-ish field.
+  if (q.location) {
+    const rx = new RegExp(escapeRegex(q.location.trim()), "i");
+    and.push({ $or: [{ location: rx }, { city: rx }, { country: rx }, { venue: rx }] });
+  }
+
+  if (q.source) filter.source = q.source;
+  if (q.free === "true") filter["price.isFree"] = true;
+  if (q.online === "true") filter.isOnline = true;
+  if (q.online === "false") filter.isOnline = false;
+
+  // Date window. `date` (a single day) is kept for backwards compatibility.
+  const range = {};
+  if (q.date) {
+    const day = new Date(q.date);
+    if (!Number.isNaN(day.getTime())) {
+      const start = new Date(day); start.setHours(0, 0, 0, 0);
+      const end = new Date(day); end.setHours(23, 59, 59, 999);
+      range.$gte = start;
+      range.$lte = end;
+    }
+  } else {
+    if (q.dateFrom) {
+      const from = new Date(q.dateFrom);
+      if (!Number.isNaN(from.getTime())) range.$gte = from;
+    }
+    if (q.dateTo) {
+      const to = new Date(q.dateTo);
+      if (!Number.isNaN(to.getTime())) { to.setHours(23, 59, 59, 999); range.$lte = to; }
+    }
+    // Hide finished events unless explicitly requested. The previous API listed
+    // past events under an "Upcoming Events" heading.
+    if (!range.$gte && q.includePast !== "true") range.$gte = new Date();
+  }
+  if (Object.keys(range).length) filter.date = range;
+
+  // Personalised feed: restrict to the signed-in user's chosen interests.
+  if (q.forYou === "true" && user && user.interests && user.interests.length) {
+    filter.category = { $in: user.interests };
+  }
+
+  if (and.length) filter.$and = and;
+  return filter;
+}
+
+function buildSort(sort) {
+  switch (sort) {
+    case "newest": return { createdAt: -1, date: 1 };
+    case "priceAsc": return { "price.min": 1, date: 1 };
+    default: return { date: 1 };
+  }
+}
+
+/** Adds isBookmarked / isAttending / isOwner for the requesting user. */
+function decorate(event, user) {
+  const doc = typeof event.toObject === "function" ? event.toObject({ virtuals: true }) : event;
+  const id = String(doc._id);
+
+  doc.attendeeCount = Array.isArray(doc.attendees) ? doc.attendees.length : 0;
+  doc.isPast = new Date(doc.endDate || doc.date).getTime() < Date.now();
+
+  if (user) {
+    doc.isBookmarked = (user.bookmarks || []).some((b) => String(b) === id);
+    doc.isAttending = (doc.attendees || []).some((a) => String(a) === String(user._id));
+    doc.isOwner = Boolean(doc.createdBy) &&
+      String(doc.createdBy._id || doc.createdBy) === String(user._id);
+  } else {
+    doc.isBookmarked = false;
+    doc.isAttending = false;
+    doc.isOwner = false;
+  }
+
+  // The raw attendee list is not public information.
+  delete doc.attendees;
+  return doc;
+}
+
+// ---------------------------------------------------------------- read routes
+
+router.get(
+  "/events",
+  optionalAuth,
+  [
+    query("page").optional().isInt({ min: 1 }).toInt(),
+    query("limit").optional().isInt({ min: 1, max: MAX_LIMIT }).toInt(),
+    query("category").optional().isIn(["All", ...CATEGORIES]),
+    query("sort").optional().isIn(["date", "newest", "priceAsc"]),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const page = req.query.page || 1;
+    const limit = req.query.limit || DEFAULT_LIMIT;
+    const filter = buildFilter(req.query, req.user);
+
+    const [events, total] = await Promise.all([
+      Event.find(filter)
+        .populate("createdBy", "name")
+        .sort(buildSort(req.query.sort))
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      Event.countDocuments(filter),
+    ]);
+
+    res.json({
+      events: events.map((e) => decorate(e, req.user)),
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit) || 1,
+      hasMore: page * limit < total,
+    });
+  })
+);
+
+/** Events created by the signed-in user. Declared before /events/:id. */
+router.get(
+  "/events/mine",
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const events = await Event.find({ createdBy: req.user._id })
+      .populate("createdBy", "name")
+      .sort({ date: 1 })
+      .lean();
+    res.json({ events: events.map((e) => decorate(e, req.user)), total: events.length });
+  })
+);
+
+router.get(
+  "/events/:id",
+  optionalAuth,
+  [param("id").isMongoId().withMessage("Invalid event id")],
+  validate,
+  asyncHandler(async (req, res) => {
+    const event = await Event.findById(req.params.id).populate("createdBy", "name");
+    if (!event) return res.status(404).json({ error: "Event not found" });
+    res.json(decorate(event, req.user));
+  })
+);
+
+/** Related events: same category or city, still upcoming, nearest in time. */
+router.get(
+  "/events/:id/similar",
+  optionalAuth,
+  [param("id").isMongoId().withMessage("Invalid event id")],
+  validate,
+  asyncHandler(async (req, res) => {
+    const event = await Event.findById(req.params.id).lean();
     if (!event) return res.status(404).json({ error: "Event not found" });
 
-    res.status(200).json(event);
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching event" });
-  }
-});
+    const events = await Event.find({
+      _id: { $ne: event._id },
+      date: { $gte: new Date() },
+      $or: [
+        { category: event.category },
+        ...(event.city ? [{ city: event.city }] : []),
+      ],
+    })
+      .populate("createdBy", "name")
+      .sort({ date: 1 })
+      .limit(4)
+      .lean();
 
-// POST: Create a new event (protected)
+    res.json({ events: events.map((e) => decorate(e, req.user)) });
+  })
+);
+
+// --------------------------------------------------------------- write routes
+
+const eventValidators = (optional) => {
+  const maybe = (chain) => (optional ? chain.optional() : chain);
+  return [
+    maybe(body("name").isString().trim().isLength({ min: 3, max: 160 })
+      .withMessage("Name must be between 3 and 160 characters")),
+    maybe(body("date").isISO8601().withMessage("A valid start date is required")),
+    maybe(body("location").isString().trim().isLength({ min: 2, max: 200 })
+      .withMessage("Location must be between 2 and 200 characters")),
+    body("endDate").optional({ values: "falsy" }).isISO8601()
+      .withMessage("End date must be a valid date"),
+    body("description").optional({ values: "falsy" }).isString().trim().isLength({ max: 5000 })
+      .withMessage("Description must not exceed 5000 characters"),
+    body("category").optional().isIn(CATEGORIES).withMessage("Invalid category"),
+    body("city").optional({ values: "falsy" }).isString().trim().isLength({ max: 100 }),
+    body("venue").optional({ values: "falsy" }).isString().trim().isLength({ max: 200 }),
+    body("country").optional({ values: "falsy" }).isString().trim().isLength({ max: 100 }),
+    body("url").optional({ values: "falsy" }).isURL().withMessage("Link must be a valid URL"),
+    body("tags").optional().isArray({ max: 12 }).withMessage("At most 12 tags"),
+    body("isOnline").optional().isBoolean().toBoolean(),
+    // An IANA zone name, e.g. "Asia/Kolkata". Validated against the runtime's
+    // own zone database rather than a hand-maintained list.
+    body("timezone").optional({ values: "falsy" }).isString().trim().isLength({ max: 64 })
+      .custom((value) => {
+        try {
+          new Intl.DateTimeFormat(undefined, { timeZone: value });
+          return true;
+        } catch {
+          throw new Error("Unknown timezone");
+        }
+      }),
+  ];
+};
+
+/** Reject an end date that precedes the start. */
+function assertDateOrder(date, endDate) {
+  if (!endDate) return null;
+  const start = new Date(date);
+  const end = new Date(endDate);
+  if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end < start) {
+    return "End date must be on or after the start date";
+  }
+  return null;
+}
+
 router.post(
   "/events",
   authMiddleware,
-  [
-    body("name")
-      .isString()
-      .withMessage("Name must be a string")
-      .trim()
-      .notEmpty()
-      .withMessage("Name is required")
-      .isLength({ min: 3, max: 100 })
-      .withMessage("Name must be between 3 and 100 characters"),
+  writeLimiter,
+  eventValidators(false),
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = pickEditable(req.body);
 
-    body("location")
-      .isString()
-      .withMessage("Location must be a string")
-      .trim()
-      .notEmpty()
-      .withMessage("Location is required")
-      .isLength({ min: 2, max: 100 })
-      .withMessage("Location must be between 2 and 100 characters"),
+    const orderError = assertDateOrder(data.date, data.endDate);
+    if (orderError) return res.status(400).json({ error: orderError });
 
-    body("date")
-      .notEmpty()
-      .withMessage("Date is required")
-      .isISO8601()
-      .withMessage("Date must be in ISO 8601 format (YYYY-MM-DD)"),
+    const event = await Event.create({
+      ...data,
+      source: "user",
+      createdBy: req.user._id,
+      attendees: [],
+    });
 
-    body("description")
-      .optional()
-      .isString()
-      .withMessage("Description must be a string")
-      .trim()
-      .isLength({ max: 500 })
-      .withMessage("Description must not exceed 500 characters"),
-
-    body("category")
-      .optional()
-      .isIn(["Music", "Sports", "Tech", "Art", "Food", "Business", "Other"])
-      .withMessage("Invalid category"),
-  ],
-
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    try {
-      const { name, date, location, description, category, image } = req.body;
-
-      const newEvent = new Event({
-        name,
-        date,
-        location,
-        description,
-        category: category || "Other",
-        image: image || "",
-        createdBy: req.user.userId,
-      });
-
-      const savedEvent = await newEvent.save();
-      const populated = await savedEvent.populate("createdBy", "name email");
-      res.status(201).json(populated);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create event." });
-    }
-  }
+    await event.populate("createdBy", "name");
+    res.status(201).json(decorate(event, req.user));
+  })
 );
 
-// PUT: Update an existing event (protected)
 router.put(
   "/events/:id",
   authMiddleware,
-  [
-    body("name")
-      .optional()
-      .isString()
-      .withMessage("Name must be a string")
-      .trim()
-      .isLength({ min: 3, max: 100 })
-      .withMessage("Name must be between 3 and 100 characters"),
+  [param("id").isMongoId().withMessage("Invalid event id"), ...eventValidators(true)],
+  validate,
+  asyncHandler(async (req, res) => {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ error: "Event not found" });
 
-    body("location")
-      .optional()
-      .isString()
-      .withMessage("Location must be a string")
-      .trim()
-      .isLength({ min: 2, max: 100 })
-      .withMessage("Location must be between 2 and 100 characters"),
-
-    body("date")
-      .optional()
-      .isISO8601()
-      .withMessage("Date must be in ISO 8601 format (YYYY-MM-DD)"),
-
-    body("description")
-      .optional()
-      .isString()
-      .withMessage("Description must be a string")
-      .trim()
-      .isLength({ max: 500 })
-      .withMessage("Description must not exceed 500 characters"),
-
-    body("category")
-      .optional()
-      .isIn(["Music", "Sports", "Tech", "Art", "Food", "Business", "Other"])
-      .withMessage("Invalid category"),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+    if (event.source !== "user") {
+      return res.status(403).json({ error: "Events synced from partner sources cannot be edited." });
+    }
+    if (!event.createdBy || String(event.createdBy) !== String(req.user._id)) {
+      return res.status(403).json({ error: "You can only edit events you created." });
     }
 
-    try {
-      const event = await Event.findById(req.params.id);
-      if (!event) {
-        return res.status(404).json({ error: "Event not found" });
-      }
+    // Only whitelisted fields are copied, so createdBy/source/attendees stay
+    // under server control. Passing req.body straight through previously let a
+    // caller reassign ownership and lock the real owner out.
+    const updates = pickEditable(req.body);
+    const orderError = assertDateOrder(
+      updates.date ?? event.date,
+      updates.endDate ?? event.endDate
+    );
+    if (orderError) return res.status(400).json({ error: orderError });
 
-      // Only the creator can update the event
-      if (event.createdBy.toString() !== req.user.userId) {
-        return res
-          .status(403)
-          .json({ error: "Not authorized to update this event" });
-      }
+    Object.assign(event, updates);
+    await event.save();
+    await event.populate("createdBy", "name");
 
-      const updatedEvent = await Event.findByIdAndUpdate(
-        req.params.id,
-        req.body,
-        { new: true, runValidators: true }
-      ).populate("createdBy", "name email");
-
-      res.status(200).json(updatedEvent);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update event" });
-    }
-  }
+    res.json(decorate(event, req.user));
+  })
 );
 
-// DELETE: Delete an event (protected)
-router.delete("/events/:id", authMiddleware, async (req, res) => {
-  try {
+router.delete(
+  "/events/:id",
+  authMiddleware,
+  [param("id").isMongoId().withMessage("Invalid event id")],
+  validate,
+  asyncHandler(async (req, res) => {
     const event = await Event.findById(req.params.id);
-    if (!event) {
-      return res.status(404).json({ error: "Event not found" });
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    if (event.source !== "user") {
+      return res.status(403).json({ error: "Events synced from partner sources cannot be deleted." });
+    }
+    if (!event.createdBy || String(event.createdBy) !== String(req.user._id)) {
+      return res.status(403).json({ error: "You can only delete events you created." });
     }
 
-    // Only the creator can delete the event
-    if (event.createdBy.toString() !== req.user.userId) {
-      return res
-        .status(403)
-        .json({ error: "Not authorized to delete this event" });
+    await event.deleteOne();
+    // Leave no dangling references in anyone's bookmarks.
+    await mongoose.model("User").updateMany(
+      { bookmarks: event._id },
+      { $pull: { bookmarks: event._id } }
+    );
+
+    res.json({ message: "Event deleted successfully", id: String(event._id) });
+  })
+);
+
+// --------------------------------------------------------------------- RSVP
+
+router.post(
+  "/events/:id/attend",
+  authMiddleware,
+  [param("id").isMongoId().withMessage("Invalid event id")],
+  validate,
+  asyncHandler(async (req, res) => {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    if (new Date(event.endDate || event.date) < new Date()) {
+      return res.status(400).json({ error: "This event has already taken place." });
     }
 
-    await Event.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: "Event deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to delete event" });
-  }
-});
+    await Event.updateOne({ _id: event._id }, { $addToSet: { attendees: req.user._id } });
+    const updated = await Event.findById(event._id).select("attendees");
+
+    res.json({ attending: true, attendeeCount: updated.attendees.length });
+  })
+);
+
+router.delete(
+  "/events/:id/attend",
+  authMiddleware,
+  [param("id").isMongoId().withMessage("Invalid event id")],
+  validate,
+  asyncHandler(async (req, res) => {
+    const event = await Event.findById(req.params.id).select("_id");
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    await Event.updateOne({ _id: event._id }, { $pull: { attendees: req.user._id } });
+    const updated = await Event.findById(event._id).select("attendees");
+
+    res.json({ attending: false, attendeeCount: updated.attendees.length });
+  })
+);
 
 module.exports = router;

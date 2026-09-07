@@ -1,106 +1,122 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { errorMessage } from "../api/client";
+import { Button, Field, Input, Alert } from "../components/ui";
 
 export default function RegisterPage() {
-    const [form, setForm] = useState({ name: "", email: "", password: "" });
-    const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
-    const { register, user } = useAuth();
-    const navigate = useNavigate();
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    if (user) {
-        navigate("/");
-        return null;
+  const { register, user } = useAuth();
+  const toast = useToast();
+  const navigate = useNavigate();
+
+  if (user) return <Navigate to="/" replace />;
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setFieldErrors((current) => ({ ...current, [e.target.name]: undefined }));
+  };
+
+  const validate = () => {
+    const errors = {};
+    if (form.name.trim().length < 2) errors.name = "Please enter your name.";
+    if (!/^\S+@\S+\.\S+$/.test(form.email)) errors.email = "Enter a valid email address.";
+    if (form.password.length < 6) errors.password = "Use at least 6 characters.";
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!validate()) return;
+
+    setLoading(true);
+    try {
+      // Registration returns a token, so the user lands signed in rather than
+      // being bounced to the login form.
+      const account = await register(form.name.trim(), form.email.trim(), form.password);
+      toast.success(`Welcome to EventSphere, ${account.name.split(" ")[0]}.`);
+      navigate("/profile", { replace: true });
+    } catch (err) {
+      setError(errorMessage(err, "Could not create your account. Please try again."));
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const handleChange = (e) =>
-        setForm({ ...form, [e.target.name]: e.target.value });
+  return (
+    <div className="container auth">
+      <div className="auth__card">
+        <h1 className="auth__title">Create your account</h1>
+        <p className="auth__sub">Free, takes a moment. Then pick the categories you care about.</p>
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError("");
+        {error && <div style={{ marginBottom: "var(--space-4)" }}><Alert>{error}</Alert></div>}
 
-        if (form.password.length < 6) {
-            setError("Password must be at least 6 characters");
-            return;
-        }
+        <form className="auth__form" onSubmit={handleSubmit} noValidate>
+          <Field label="Name" htmlFor="name" error={fieldErrors.name}>
+            <Input
+              id="name"
+              name="name"
+              type="text"
+              placeholder="Your name"
+              value={form.name}
+              onChange={handleChange}
+              error={fieldErrors.name}
+              required
+              autoComplete="name"
+              autoFocus
+            />
+          </Field>
 
-        setLoading(true);
+          <Field label="Email" htmlFor="email" error={fieldErrors.email}>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={handleChange}
+              error={fieldErrors.email}
+              required
+              autoComplete="email"
+            />
+          </Field>
 
-        try {
-            await register(form.name, form.email, form.password);
-            navigate("/login");
-        } catch (err) {
-            setError(
-                err.response?.data?.error || "Registration failed. Please try again."
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
+          <Field
+            label="Password"
+            htmlFor="password"
+            error={fieldErrors.password}
+            hint="At least 6 characters."
+          >
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Choose a password"
+              value={form.password}
+              onChange={handleChange}
+              error={fieldErrors.password}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+          </Field>
 
-    return (
-        <div className="auth-page">
-            <div className="auth-card">
-                <div className="auth-header">
-                    <span className="auth-icon">🚀</span>
-                    <h2>Join EventSphere</h2>
-                    <p>Create your account and start discovering events</p>
-                </div>
+          <Button type="submit" variant="primary" size="lg" loading={loading} block>
+            {loading ? "Creating account…" : "Create account"}
+          </Button>
+        </form>
 
-                {error && <div className="auth-error">{error}</div>}
-
-                <form onSubmit={handleSubmit} className="auth-form">
-                    <div className="form-group">
-                        <label htmlFor="name">Full Name</label>
-                        <input
-                            id="name"
-                            name="name"
-                            type="text"
-                            placeholder="Enter your name"
-                            value={form.name}
-                            onChange={handleChange}
-                            required
-                            autoComplete="name"
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="email">Email</label>
-                        <input
-                            id="email"
-                            name="email"
-                            type="email"
-                            placeholder="Enter your email"
-                            value={form.email}
-                            onChange={handleChange}
-                            required
-                            autoComplete="email"
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="password">Password</label>
-                        <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            placeholder="Min 6 characters"
-                            value={form.password}
-                            onChange={handleChange}
-                            required
-                            minLength={6}
-                            autoComplete="new-password"
-                        />
-                    </div>
-                    <button type="submit" className="auth-submit-btn" disabled={loading}>
-                        {loading ? "Creating account..." : "Create Account"}
-                    </button>
-                </form>
-
-                <p className="auth-switch">
-                    Already have an account? <Link to="/login">Sign in here</Link>
-                </p>
-            </div>
-        </div>
-    );
+        <p className="auth__switch">
+          Already have an account? <Link to="/login">Sign in</Link>
+        </p>
+      </div>
+    </div>
+  );
 }

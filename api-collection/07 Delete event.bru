@@ -1,0 +1,18 @@
+meta {
+  name: 07 Delete event
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/api/events/{{eventId}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+assert {
+  res.status: eq 200
+}

@@ -1,70 +1,75 @@
 const express = require("express");
-const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { body } = require("express-validator");
 const User = require("../models/User");
+const env = require("../config/env");
+const validate = require("../middleware/validate");
+const authMiddleware = require("../middleware/authMiddleware");
+const { asyncHandler } = require("../middleware/errorHandler");
+const { authLimiter } = require("../middleware/rateLimit");
 
 const router = express.Router();
 
-// Register Route
-router.post("/register", async (req, res) => {
-  const { name, email, password } = req.body;
+const signToken = (user) =>
+  jwt.sign({ userId: user._id }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
+router.post(
+  "/register",
+  authLimiter,
+  [
+    body("name").isString().trim().isLength({ min: 2, max: 60 })
+      .withMessage("Name must be between 2 and 60 characters"),
+    body("email").isEmail().withMessage("Please enter a valid email address")
+      .normalizeEmail({ gmail_remove_dots: false }),
+    body("password").isLength({ min: 6, max: 128 })
+      .withMessage("Password must be at least 6 characters"),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { name, email, password } = req.body;
 
-  if (password.length < 6) {
-    return res
-      .status(400)
-      .json({ error: "Password must be at least 6 characters" });
-  }
+    if (await User.exists({ email })) {
+      return res.status(409).json({ error: "An account with that email already exists." });
+    }
 
-  try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser)
-      return res.status(400).json({ error: "Email already exists" });
+    const user = await User.create({ name, email, password });
 
-    const newUser = new User({ name, email, password });
-    await newUser.save();
+    // Return a token straight away — no second round-trip through the login form.
+    res.status(201).json({ token: signToken(user), user: user.toPublicJSON() });
+  })
+);
 
-    res.status(201).json({ message: "User registered successfully" });
-  } catch (err) {
-    res.status(500).json({ error: "Server error during registration" });
-  }
-});
+router.post(
+  "/login",
+  authLimiter,
+  [
+    body("email").isEmail().withMessage("Please enter a valid email address")
+      .normalizeEmail({ gmail_remove_dots: false }),
+    body("password").isString().notEmpty().withMessage("Password is required"),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
 
-// Login Route
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+    // password is select:false on the schema, so opt in explicitly.
+    const user = await User.findOne({ email }).select("+password");
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required" });
-  }
+    // Same message either way, so the response cannot be used to enumerate accounts.
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
 
-  try {
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.status(401).json({ error: "Invalid email or password" });
+    res.json({ token: signToken(user), user: user.toPublicJSON() });
+  })
+);
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(401).json({ error: "Invalid email or password" });
-
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-      },
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Server error during login" });
-  }
-});
+/** Lets the client validate a stored token on boot and refresh the cached profile. */
+router.get(
+  "/me",
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    res.json({ user: req.user.toPublicJSON() });
+  })
+);
 
 module.exports = router;

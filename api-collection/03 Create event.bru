@@ -1,0 +1,36 @@
+meta {
+  name: 03 Create event
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/events
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Food Festival",
+    "date": "2027-05-01T18:00:00.000Z",
+    "location": "Charminar, Hyderabad",
+    "city": "Hyderabad",
+    "country": "India",
+    "category": "Food",
+    "description": "A celebration of food and culture."
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("eventId", res.body._id);
+}
+
+assert {
+  res.status: eq 201
+  res.body.isOwner: eq true
+}

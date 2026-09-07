@@ -1,0 +1,22 @@
+meta {
+  name: 02 List events
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/events?category=Music&limit=5&sort=date
+  auth: none
+}
+
+params:query {
+  category: Music
+  limit: 5
+  sort: date
+}
+
+assert {
+  res.status: eq 200
+  res.body.events: isDefined
+  res.body.total: isNumber
+}
