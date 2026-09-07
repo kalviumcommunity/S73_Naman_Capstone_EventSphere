@@ -11,7 +11,8 @@
     "bootstrap": "node backend/seed.js",
     "sync": "node backend/scripts/sync.js",
     "client:install": "cd client && npm install",
-    "client:build": "cd client && npm run build"
+    "client:build": "cd client && npm run build",
+    "tm:check": "node backend/scripts/tmcheck.js"
   },
   "keywords": [
     "events",
