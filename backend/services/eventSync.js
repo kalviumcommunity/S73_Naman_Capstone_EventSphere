@@ -173,6 +173,22 @@ async function runSync(trigger = "manual") {
   };
 }
 
+/**
+ * Close out runs left "running" by a process that died mid-sync. Nothing can
+ * still be in flight at boot, so an open row is stale by definition — without
+ * this, /api/sync/status reports a sync that will never finish.
+ */
+async function reconcileInterrupted() {
+  const res = await SyncLog.updateMany(
+    { status: "running" },
+    { $set: { status: "failed", error: "Interrupted — the server stopped mid-sync.", finishedAt: new Date() } }
+  );
+  if (res.modifiedCount) {
+    console.log(`[sync] Marked ${res.modifiedCount} interrupted run(s) as failed.`);
+  }
+  return res.modifiedCount;
+}
+
 /** True when no successful sync has completed within `hours`. */
 async function isStale(hours) {
   const last = await SyncLog.findOne({ status: { $in: ["success", "partial"] } })
@@ -184,4 +200,4 @@ async function isStale(hours) {
 
 const isRunning = () => running;
 
-module.exports = { runSync, isStale, isRunning, providers, pruneExpired };
+module.exports = { runSync, isStale, isRunning, providers, pruneExpired, reconcileInterrupted };

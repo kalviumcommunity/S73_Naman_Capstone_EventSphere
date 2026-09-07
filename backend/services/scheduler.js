@@ -5,7 +5,7 @@
  */
 const cron = require("node-cron");
 const env = require("../config/env");
-const { runSync, isStale } = require("./eventSync");
+const { runSync, isStale, reconcileInterrupted } = require("./eventSync");
 
 function start() {
   if (!cron.validate(env.SYNC_CRON)) {
@@ -24,21 +24,25 @@ function start() {
 
   console.log(`[scheduler] Daily event sync scheduled: "${env.SYNC_CRON}" (${env.SYNC_TIMEZONE}).`);
 
-  if (env.SYNC_ON_BOOT) {
-    // Deferred so it never blocks the server from accepting traffic.
-    setTimeout(async () => {
-      try {
-        if (await isStale(env.SYNC_STALE_HOURS)) {
-          console.log("[scheduler] Catalogue is stale — running catch-up sync.");
-          await runSync("boot");
-        } else {
-          console.log("[scheduler] Catalogue is fresh — skipping boot sync.");
-        }
-      } catch (err) {
-        console.error("[scheduler] Boot sync failed —", err.message);
+  // Deferred so none of this blocks the server from accepting traffic.
+  setTimeout(async () => {
+    try {
+      // Always runs, even with SYNC_ON_BOOT off: a run left open by a process
+      // that died mid-sync would otherwise show as "running" forever.
+      await reconcileInterrupted();
+
+      if (!env.SYNC_ON_BOOT) return;
+
+      if (await isStale(env.SYNC_STALE_HOURS)) {
+        console.log("[scheduler] Catalogue is stale — running catch-up sync.");
+        await runSync("boot");
+      } else {
+        console.log("[scheduler] Catalogue is fresh — skipping boot sync.");
       }
-    }, 3000);
-  }
+    } catch (err) {
+      console.error("[scheduler] Boot sync failed —", err.message);
+    }
+  }, 3000);
 
   return task;
 }
