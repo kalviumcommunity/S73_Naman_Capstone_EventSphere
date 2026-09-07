@@ -1,0 +1,19 @@
+meta {
+  name: 06 RSVP
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/events/{{eventId}}/attend
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.attending: eq true
+}

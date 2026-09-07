@@ -1,0 +1,15 @@
+meta {
+  name: 08 Sync status
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/sync/status
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.providers: isDefined
+}

@@ -1,53 +1,64 @@
 const express = require("express");
-const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const crypto = require("crypto");
 const fs = require("fs");
+const authMiddleware = require("../middleware/authMiddleware");
+const { writeLimiter } = require("../middleware/rateLimit");
 
-// Ensure uploads directory exists
-const uploadDir = "uploads";
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
+const router = express.Router();
 
-// Storage config with secure random filename
+// Resolved against this file, not process.cwd(). The previous relative path
+// meant uploads landed outside the directory express.static serves whenever the
+// server was started from the repo root.
+const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+// Raster formats only. SVG is deliberately excluded: it can carry script and is
+// served from our own origin, which would make it a stored-XSS vector.
+const ALLOWED = new Map([
+  ["image/jpeg", ".jpg"],
+  ["image/png", ".png"],
+  ["image/webp", ".webp"],
+  ["image/gif", ".gif"],
+  ["image/avif", ".avif"],
+]);
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
+  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {
-    const uniqueSuffix = crypto.randomBytes(6).toString("hex");
-    cb(null, `${Date.now()}-${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
+    // Extension comes from the validated MIME type, never from user input.
+    const ext = ALLOWED.get(file.mimetype) || ".bin";
+    cb(null, `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`);
+  },
 });
 
-// File filter (only image MIME types)
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image/")) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only image files are allowed!"), false);
-  }
-};
-
-// Multer middleware with size limit (2MB)
 const upload = multer({
   storage,
-  fileFilter,
-  limits: { fileSize: 2 * 1024 * 1024 } // 2MB
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED.has(file.mimetype)) return cb(null, true);
+    const err = new Error("Only JPG, PNG, WebP, GIF or AVIF images are allowed.");
+    err.status = 400;
+    cb(err);
+  },
 });
 
-// POST /upload route with validation
-router.post("/upload", upload.single("image"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded" });
+/** Cover-image upload. Requires a signed-in user — this was previously open to anyone. */
+router.post(
+  "/upload",
+  authMiddleware,
+  writeLimiter,
+  upload.single("image"),
+  (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No image was uploaded." });
+
+    res.status(201).json({
+      message: "Image uploaded successfully",
+      filename: req.file.filename,
+      url: `/uploads/${req.file.filename}`,
+    });
   }
-
-  res.json({
-    message: "File uploaded successfully",
-    filename: req.file.filename // Return only filename, not full path
-  });
-});
+);
 
 module.exports = router;
